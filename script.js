@@ -15,6 +15,7 @@ async function carregarFilmes() {
                 <div class="filme">
                     <img src="${filme.poster}" alt="${filme.titulo}" onerror="this.src='https://s.ltrbxd.com/static/img/empty-poster-35-vLShH7kq.png'">
                     <p>${filme.titulo}</p>
+                    <div class="rating">${filme.rating}</div>
                 </div>
             `;
         });

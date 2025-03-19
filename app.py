@@ -8,12 +8,16 @@ app = Flask(__name__)
 # Configuração
 USUARIO_LETTERBOXD = "wiseking"  # Substitua pelo seu usuário do Letterboxd
 URL_RECENTES = f"https://letterboxd.com/{USUARIO_LETTERBOXD}/films/diary/"
-TMDB_API_KEY = "SUA_CHAVE_DO_TMDB_AQUI"  # Substitua pela sua chave do TMDb
-TMDB_URL = "https://api.themoviedb.org/3/search/movie"
+
+# Configurações do TMDB
+TMDB_API_KEY = "5c07032bfee9be2073e96d7d6af3b0cb"
+TMDB_ACCESS_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI1YzA3MDMyYmZlZTliZTIwNzNlOTZkN2Q2YWYzYjBjYiIsIm5iZiI6MTc0MjM0MjAwNi43NTgwMDAxLCJzdWIiOiI2N2RhMDc3NmIwNWM4YTM4MGZhMWRjNjMiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.YOJT8fQFB-9oHq-5_vTEtaRHwuepKN0cjxvb6_aeeyw"
+TMDB_BASE_URL = "https://api.themoviedb.org/3"
 
 # Headers para evitar bloqueios
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Authorization": f"Bearer {TMDB_ACCESS_TOKEN}"
 }
 
 # Configuração manual do CORS
@@ -25,25 +29,35 @@ def after_request(response):
     response.headers.add("Access-Control-Allow-Methods", "GET")
     return response
 
-def buscar_poster_no_tmdb(titulo):
-    """ Busca o pôster de um filme no TMDb """
+def obter_detalhes_filme_tmdb(titulo):
+    """ Busca o pôster e o título oficial do filme no TMDB """
+    url = f"{TMDB_BASE_URL}/search/movie"
     params = {
         "api_key": TMDB_API_KEY,
         "query": titulo,
-        "language": "pt-BR"  # Opcional: busca em português
+        "language": "pt-BR"
     }
-    resposta = requests.get(TMDB_URL, params=params)
+    resposta = requests.get(url, headers=HEADERS, params=params)
+    
     if resposta.status_code == 200:
-        dados = resposta.json()
-        if dados["results"]:
-            # Retorna a URL do pôster do primeiro resultado
-            poster_path = dados["results"][0]["poster_path"]
-            if poster_path:
-                return f"https://image.tmdb.org/t/p/w500{poster_path}"
-    return "https://s.ltrbxd.com/static/img/empty-poster-35-vLShH7kq.png"  # Placeholder padrão
+        resultados = resposta.json().get("results", [])
+        if resultados:
+            filme = resultados[0]
+            poster_path = filme.get("poster_path")
+            titulo_oficial = filme.get("title", titulo)  # Usa o título do TMDB, ou o original se não encontrar
+
+            return {
+                "poster": f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else "https://s.ltrbxd.com/static/img/empty-poster-35-vLShH7kq.png",
+                "titulo": titulo_oficial
+            }
+    
+    return {
+        "poster": "https://s.ltrbxd.com/static/img/empty-poster-35-vLShH7kq.png",
+        "titulo": titulo
+    }
 
 def obter_filmes_recentes():
-    """ Faz scraping no Letterboxd para obter os últimos 4 filmes assistidos """
+    """ Faz scraping no Letterboxd para obter os últimos 4 filmes assistidos e suas avaliações """
     resposta = requests.get(URL_RECENTES, headers=HEADERS)
 
     if resposta.status_code != 200:
@@ -64,12 +78,21 @@ def obter_filmes_recentes():
         else:
             titulo = "Título Desconhecido"
 
-        # Busca o pôster no TMDb
-        poster_url = buscar_poster_no_tmdb(titulo)
+        # Avaliação do usuário no Letterboxd
+        rating_elemento = filme.find("td", class_="td-rating")
+        if rating_elemento:
+            rating = rating_elemento.find("span", class_="rating")
+            rating = rating.text.strip() if rating else "N/A"
+        else:
+            rating = "N/A"
+
+        # Busca os detalhes do filme no TMDB (título e pôster)
+        detalhes_filme = obter_detalhes_filme_tmdb(titulo)
 
         lista_filmes.append({
-            "titulo": titulo,
-            "poster": poster_url
+            "titulo": detalhes_filme["titulo"],
+            "poster": detalhes_filme["poster"],
+            "rating": rating
         })
 
     return lista_filmes
