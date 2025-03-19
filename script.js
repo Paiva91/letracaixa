@@ -30,5 +30,5 @@ async function carregarFilmes() {
 // Chamar a função ao carregar a página
 carregarFilmes();
 
-// Atualizar filmes a cada 5 minutos (300.000 milissegundos)
-setInterval(carregarFilmes, 300000);
+// Atualiza filmes a cada 2 minutos
+setInterval(carregarFilmes, 120000); 
